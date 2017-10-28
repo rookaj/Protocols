@@ -3,8 +3,8 @@ import java.net.*;
 
 public class Client {
 
-    public static final double g = Math.pow(2, 30);
-    public static final double m = Math.pow(2, 20);
+    public static final int g = (int)Math.pow(2, 30);
+    public static final int m = (int)Math.pow(2, 20);
     
     public static Socket getSocket(String host, int port)
     {
@@ -21,13 +21,15 @@ public class Client {
     
     public static void TCP_streaming(String host, int port, int size) throws Exception
     {
-    	double count = g;
+    	int count = g;
     	byte[] bytes = new byte[size];
     	Socket sock = getSocket(host, port);
     	DataOutputStream toServer = new DataOutputStream(sock.getOutputStream());
     	BufferedReader fromServer = new BufferedReader(new InputStreamReader(sock.getInputStream()));
+    	System.out.println(g);
+    	toServer.writeByte(0);//telling server no ack
     	
-    	toServer.writeBytes("0 " + g); //telling server: no ack, 1g total size
+    	toServer.writeInt(count); //telling server: 1g total size
     	long endTime = 0L;
     	long startTime = System.currentTimeMillis();
     	
@@ -38,10 +40,10 @@ public class Client {
     	}
     	endTime = System.currentTimeMillis();
     	long elapsedTime = endTime - startTime;
-    	long throughput = elapsedTime/(long)m;
+    	double throughput = ((double)g/(double)elapsedTime)*(1000/(double)m);
     	
     	System.out.println(throughput);
-    	
+    	sock.close();
     }
     
     public static void main(String[] args)
@@ -49,9 +51,9 @@ public class Client {
         String host = args[0];
         int port = Integer.parseInt(args[1]);
         String transport = args[2]; //TCP or UDP
-        int msgSize = Integer.parseInt(args[3]); //1 byte to 65,536 bytes
-        String ack = args[4]; //pure streaming or stop-and-wait
-
+        String ack = args[3]; //pure streaming or stop-and-wait
+        int msgSize = Integer.parseInt(args[4]); //1 byte to 65,536 bytes
+        
         String response = "";
         if(transport.equals("TCP")) {
             if(ack.equals("streaming")) {
