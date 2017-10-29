@@ -12,17 +12,15 @@ public class Server implements Runnable {
 	
     public static void main(String[] args) throws Exception {
         if(args.length != 2) {
-            System.err.println("Invalid Number of Arguments.");
+            System.err.println("Invalid Arguments.");
             System.exit(1);
         }
-        
         int port = Integer.parseInt(args[0]);
         String transport = args[1];
         
         if(transport.equals("TCP")) {
             ServerSocket servSock = new ServerSocket(port, 5);
             try {
-    	        
     	        for(;;) {
     	        	Socket conn = servSock.accept();
     	        	new Thread(new Server(conn)).start();
@@ -62,23 +60,31 @@ public class Server implements Runnable {
         InetAddress IPAddress = recvAck.getAddress();
         int clientPort = recvAck.getPort();
         DatagramPacket sendAck = new DatagramPacket(clientSize, clientSize.length, IPAddress, clientPort);
-        
-        servSock.send(sendAck);
-        servSock.receive(recvSize);
-        servSock.send(sendAck);
-        
-        ByteBuffer byteBuffer = ByteBuffer.wrap(recvSize.getData(), 0, 4);
-        int totalSize = byteBuffer.getInt();
         byte ack = recvAck.getData()[0];
-        
-        byte[] msg = new byte[totalSize];
-        String s = "";
         
         if(ack == 1) {
             byte[] ackArr = {ack};
             sendAck = new DatagramPacket(ackArr, ackArr.length, IPAddress, clientPort);
             ackProtocol = "Stop-and-Wait";
+            
+            servSock.receive(recvSize);
+        } else {
+            servSock.send(sendAck);
+            servSock.receive(recvSize);
+            servSock.send(sendAck);
         }
+        
+        ByteBuffer byteBuffer = ByteBuffer.wrap(recvSize.getData(), 0, 4);
+        int totalSize = byteBuffer.getInt();
+
+       
+        
+
+        
+        
+        byte[] msg = new byte[totalSize];
+        String s = "";
+        
         servSock.setSoTimeout(1000);
 
         try{
@@ -94,8 +100,9 @@ public class Server implements Runnable {
     
             }
         } catch(SocketTimeoutException e) {
-            System.out.println("Error: Socket closed due to Timeout");
+            System.out.println("Socket Closed Due to Timeout from Client.");
         }
+        
         servSock.close();
         
         System.out.println("Acknowledgement Protocol: " + ackProtocol);
@@ -116,7 +123,7 @@ public class Server implements Runnable {
     		String ackProtocol = "Pure Streaming";
     		
     		DataInputStream fromClient = new DataInputStream(conn.getInputStream());
-    		DataOutputStream toClient = null;
+    		DataOutputStream toClient = new DataOutputStream(conn.getOutputStream());
     		
             clientInput[0] = fromClient.readByte();
             clientInput[1] = fromClient.readByte();
@@ -127,15 +134,15 @@ public class Server implements Runnable {
 
             totalSize = byteBuffer.getInt();
             
+            
             if(clientInput[0] == 1) {
-                //Stop-and-wait protocol
-                toClient = new DataOutputStream(conn.getOutputStream());
                 ack = 1;
                 ackProtocol = "Stop-and-Wait";
+            } else {
+                toClient.writeByte(1); //Send acknowledgement of Instructions
             }
 
             byte[] msg = new byte[totalSize];
-            //The following code shows in detail how to read from a TCP socket
             String s = "";
             while(s.length() < totalSize)
             {

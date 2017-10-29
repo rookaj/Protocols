@@ -22,7 +22,7 @@ public class Client {
     
     public static void TCPTimer(String host, int port, int size, int ack) throws Exception
     {
-        int count = g/4096;
+    	int count = g/4096;
     	int total = 0;
     	byte[] bytes = new byte[size];
     	int msgCount = 0;
@@ -33,11 +33,16 @@ public class Client {
     	
     	if(ack == 0) {
     	    toServer.writeByte(0); //telling server pure streaming
+    	    toServer.writeInt(count); //telling server: 1g total size
+    	    fromServer.readByte(); //Wait for acknowledgement of instructions
     	} else if(ack == 1) {
     	    toServer.writeByte(1); //telling server stop-and-wait
+    	    toServer.writeInt(count); //telling server: 1g total size
     	}
     	
-    	toServer.writeInt(count); //telling server: 1g total size
+
+    	
+    	
     	long endTime = 0L;
     	long startTime = System.currentTimeMillis();
     	
@@ -71,11 +76,6 @@ public class Client {
         
         byte[] ackType = new byte[1];
         byte[] totalSize = ByteBuffer.allocate(4).putInt(count).array();
-        if(ack == 0) {
-           ackType[0] = 0; //telling server pure streaming
-        } else if(ack == 1) {
-            ackType[0] = 1; //telling server stop-and-wait
-        }
         byte[] bytes = new byte[size];
         byte[] receiveAck = new byte[1];
         DatagramSocket sock = new DatagramSocket();
@@ -85,10 +85,18 @@ public class Client {
         DatagramPacket sendSize = new DatagramPacket(totalSize, totalSize.length, IPAddress, port);
         DatagramPacket receivePacket = new DatagramPacket(receiveAck, receiveAck.length);
         
-        sock.send(sendAck);
-        sock.receive(receivePacket);
-        sock.send(sendSize);
-        sock.receive(receivePacket);
+        if(ack == 0) {
+           ackType[0] = 0; //telling server pure streaming
+           sock.send(sendAck);
+           sock.receive(receivePacket);
+           sock.send(sendSize);
+           sock.receive(receivePacket);
+        } else if(ack == 1) {
+            ackType[0] = 1; //telling server stop-and-wait
+            sock.send(sendAck);
+            sock.send(sendSize);
+        }
+        
         DatagramPacket sendPacket = new DatagramPacket(bytes, bytes.length, IPAddress, port);
         
         
@@ -120,10 +128,9 @@ public class Client {
     public static void main(String[] args)
     {
         if(args.length != 5) {
-            System.err.println("Invalid Number of Arguments.");
+            System.err.println("Invalid Arguments.");
             System.exit(1);
         }
-        
         String host = args[0];
         int port = Integer.parseInt(args[1]);
         String transport = args[2]; //TCP or UDP
